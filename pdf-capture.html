@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Capture - Chụp Ảnh PDF</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
+            padding: 20px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #e94560;
+        }
+
+        .header .subtitle {
+            font-size: 13px;
+            color: #8899aa;
+            margin-top: 4px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            padding: 15px 30px;
+            background: #16213e;
+            border-bottom: 1px solid #2a2a4a;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #e94560 0%, #c23152 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #533483 0%, #3d2066 100%);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #0f9b58 0%, #0a7a42 100%);
+            color: white;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+        }
+
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+            z-index: 10;
+            top: 0;
+            left: 0;
+        }
+
+        .page-nav {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-left: 20px;
+            padding-left: 20px;
+            border-left: 2px solid #2a2a4a;
+        }
+
+        .page-nav span {
+            font-size: 14px;
+            color: #8899aa;
+        }
+
+        .page-nav .current-page {
+            color: #e94560;
+            font-weight: 600;
+        }
+
+        .zoom-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        .zoom-controls span {
+            font-size: 13px;
+            color: #8899aa;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .main-container {
+            display: flex;
+            height: calc(100vh - 120px);
+        }
+
+        .sidebar {
+            width: 280px;
+            background: #16213e;
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 1px solid #2a2a4a;
+        }
+
+        .sidebar h3 {
+            font-size: 16px;
+            color: #e94560;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #2a2a4a;
+        }
+
+        .capture-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .capture-item {
+            background: #1a1a2e;
+            border: 1px solid #2a2a4a;
+            border-radius: 8px;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .capture-item:hover {
+            border-color: #e94560;
+            background: #22223a;
+        }
+
+        .capture-item.selected {
+            border-color: #e94560;
+            background: #2a1a2e;
+        }
+
+        .capture-item img {
+            width: 100%;
+            height: auto;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+
+        .capture-item .info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: #8899aa;
+        }
+
+        .capture-item .download-btn {
+            background: #e94560;
+            color: white;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+
+        .capture-item .download-btn:hover {
+            background: #c23152;
+        }
+
+        .capture-item .delete-btn {
+            background: #666;
+            color: white;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            margin-left: 4px;
+        }
+
+        .capture-item .delete-btn:hover {
+            background: #e94560;
+        }
+
+        .pdf-viewer {
+            flex: 1;
+            overflow: auto;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            position: relative;
+        }
+
+        .canvas-container {
+            position: relative;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            background: white;
+            display: inline-block;
+            max-width: 100%;
+        }
+
+        #pdf-canvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .selection-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+            z-index: 10;
+        }
+
+        .selection-box {
+            position: absolute;
+            border: 2px dashed #e94560;
+            background: rgba(233, 69, 96, 0.15);
+            pointer-events: none;
+            z-index: 11;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #556677;
+            text-align: center;
+        }
+
+        .empty-state .icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        .empty-state h2 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+            max-width: 400px;
+        }
+
+        .mode-indicator {
+            padding: 8px 16px;
+            background: #e94560;
+            color: white;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            display: none;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .mode-indicator.active {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #16213e;
+            color: #e0e0e0;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            border-left: 4px solid #e94560;
+            transform: translateX(120%);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.success {
+            border-left-color: #0f9b58;
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: #667788;
+            margin-top: 8px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>📸 PDF Capture</h1>
+            <div class="subtitle">Đọc PDF và khoanh vùng chụp ảnh JPG</div>
+        </div>
+        <div>
+            <span class="mode-indicator" id="modeIndicator">✂️ Đang chọn vùng - Kéo chuột để khoanh</span>
+        </div>
+    </div>
+
+    <div class="controls">
+        <div class="file-input-wrapper">
+            <button class="btn btn-primary" id="openBtn" type="button">📂 Mở File PDF</button>
+            <input type="file" id="fileInput" accept=".pdf" style="display:none;">
+        </div>
+        <button class="btn btn-secondary" id="selectModeBtn" disabled>✂️ Khoanh Vùng</button>
+        <button class="btn btn-success" id="captureBtn" disabled>📸 Chụp Ảnh</button>
+        <button class="btn btn-secondary" id="saveAllBtn" disabled>💾 Lưu Tất Cả</button>
+
+        <div class="page-nav" id="pageNav" style="display:none;">
+            <button class="btn btn-secondary" id="prevBtn" style="padding:6px 12px;">◀</button>
+            <span>Trang <span class="current-page" id="currentPage">1</span> / <span id="totalPages">1</span></span>
+            <button class="btn btn-secondary" id="nextBtn" style="padding:6px 12px;">▶</button>
+        </div>
+
+        <div class="zoom-controls" id="zoomControls" style="display:none;">
+            <button class="btn btn-secondary" id="zoomOutBtn" style="padding:6px 12px;">−</button>
+            <span id="zoomLevel">100%</span>
+            <button class="btn btn-secondary" id="zoomInBtn" style="padding:6px 12px;">+</button>
+            <button class="btn btn-secondary" id="fitWidthBtn" style="padding:6px 12px;">↔ Vừa wide</button>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="sidebar">
+            <h3>📷 Ảnh Đã Chụp</h3>
+            <div class="capture-list" id="captureList">
+                <div class="help-text">Chưa có ảnh nào. Hãy mở file PDF và khoanh vùng chụp ảnh.</div>
+            </div>
+        </div>
+
+        <div class="pdf-viewer" id="pdfViewer">
+            <div class="empty-state" id="emptyState">
+                <div class="icon">📄</div>
+                <h2>Chưa có file PDF</h2>
+                <p>Nhấn nút "Mở File PDF" để chọn file PDF cần đọc và chụp ảnh.</p>
+            </div>
+            <div class="canvas-container" id="canvasContainer" style="display:none;position:relative;">
+                <canvas id="pdf-canvas"></canvas>
+                <div class="selection-overlay" id="selectionOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;cursor:crosshair;z-index:10;"></div>
+                <div class="selection-box" id="selectionBox" style="display:none;position:absolute;border:2px dashed #e94560;background:rgba(233,69,96,0.15);pointer-events:none;z-index:11;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ==================== CONFIG ====================
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // ==================== STATE ====================
+        let pdfDoc = null;
+        let currentPage = 1;
+        let totalPages = 0;
+        let scale = 1.5;
+        let isSelectMode = false;
+        let isSelecting = false;
+        let selectionStart = { x: 0, y: 0 };
+        let captures = [];
+        let captureCounter = 0;
+
+        // ==================== DOM REFS ====================
+        const fileInput = document.getElementById('fileInput');
+        const canvas = document.getElementById('pdf-canvas');
+        const ctx = canvas.getContext('2d');
+        const canvasContainer = document.getElementById('canvasContainer');
+        const selectionOverlay = document.getElementById('selectionOverlay');
+        const selectionBox = document.getElementById('selectionBox');
+        const emptyState = document.getElementById('emptyState');
+        const captureList = document.getElementById('captureList');
+        const modeIndicator = document.getElementById('modeIndicator');
+        const toast = document.getElementById('toast');
+
+        // Buttons
+        const openBtn = document.getElementById('openBtn');
+        const selectModeBtn = document.getElementById('selectModeBtn');
+        const captureBtn = document.getElementById('captureBtn');
+        const saveAllBtn = document.getElementById('saveAllBtn');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const zoomInBtn = document.getElementById('zoomInBtn');
+        const zoomOutBtn = document.getElementById('zoomOutBtn');
+        const fitWidthBtn = document.getElementById('fitWidthBtn');
+
+        // Open file button click handler
+        openBtn.addEventListener('click', () => fileInput.click());
+
+        // ==================== FILE LOADING ====================
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const arrayBuffer = await file.arrayBuffer();
+            try {
+                pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                totalPages = pdfDoc.numPages;
+                currentPage = 1;
+
+                emptyState.style.display = 'none';
+                canvasContainer.style.display = 'block';
+                document.getElementById('pageNav').style.display = 'flex';
+                document.getElementById('zoomControls').style.display = 'flex';
+                selectModeBtn.disabled = false;
+
+                showToast(`Đã tải: ${file.name} (${totalPages} trang)`, true);
+                renderPage(currentPage);
+            } catch (err) {
+                showToast('Lỗi đọc file PDF: ' + err.message);
+            }
+        });
+
+        // ==================== PDF RENDERING ====================
+        async function renderPage(pageNum) {
+            if (!pdfDoc) return;
+
+            const page = await pdfDoc.getPage(pageNum);
+            const viewport = page.getViewport({ scale: scale });
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            // Ensure canvas container matches canvas size
+            canvas.style.width = viewport.width + 'px';
+            canvas.style.height = viewport.height + 'px';
+            canvasContainer.style.width = viewport.width + 'px';
+            canvasContainer.style.height = viewport.height + 'px';
+
+            // Clear previous selection
+            selectionBox.style.display = 'none';
+
+            await page.render({
+                canvasContext: ctx,
+                viewport: viewport
+            }).promise;
+
+            document.getElementById('currentPage').textContent = currentPage;
+            document.getElementById('totalPages').textContent = totalPages;
+
+            // Clear selection mode when changing page
+            if (isSelectMode) {
+                toggleSelectMode();
+            }
+        }
+
+        // ==================== PAGE NAVIGATION ====================
+        prevBtn.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                renderPage(currentPage);
+            }
+        });
+
+        nextBtn.addEventListener('click', () => {
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderPage(currentPage);
+            }
+        });
+
+        // ==================== ZOOM CONTROLS ====================
+        zoomInBtn.addEventListener('click', () => {
+            scale = Math.min(scale + 0.25, 5);
+            updateZoom();
+        });
+
+        zoomOutBtn.addEventListener('click', () => {
+            scale = Math.max(scale - 0.25, 0.5);
+            updateZoom();
+        });
+
+        fitWidthBtn.addEventListener('click', () => {
+            if (!pdfDoc) return;
+            pdfDoc.getPage(currentPage).then(page => {
+                const viewport = page.getViewport({ scale: 1 });
+                const viewerWidth = document.getElementById('pdfViewer').clientWidth - 60;
+                scale = viewerWidth / viewport.width;
+                updateZoom();
+            });
+        });
+
+        function updateZoom() {
+            document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
+            renderPage(currentPage);
+        }
+
+        // ==================== SELECTION MODE ====================
+        function toggleSelectMode() {
+            isSelectMode = !isSelectMode;
+            selectModeBtn.textContent = isSelectMode ? '❌ Hủy Chọn' : '✂️ Khoanh Vùng';
+            modeIndicator.classList.toggle('active', isSelectMode);
+            selectionOverlay.style.cursor = isSelectMode ? 'crosshair' : 'default';
+            captureBtn.disabled = !isSelectMode;
+
+            if (!isSelectMode) {
+                selectionBox.style.display = 'none';
+            }
+        }
+
+        selectModeBtn.addEventListener('click', toggleSelectMode);
+
+        // ==================== MOUSE SELECTION ====================
+        selectionOverlay.addEventListener('mousedown', (e) => {
+            if (!isSelectMode) return;
+
+            isSelecting = true;
+            const rect = selectionOverlay.getBoundingClientRect();
+            selectionStart.x = e.clientX - rect.left;
+            selectionStart.y = e.clientY - rect.top;
+
+            selectionBox.style.left = selectionStart.x + 'px';
+            selectionBox.style.top = selectionStart.y + 'px';
+            selectionBox.style.width = '0px';
+            selectionBox.style.height = '0px';
+            selectionBox.style.display = 'block';
+        });
+
+        selectionOverlay.addEventListener('mousemove', (e) => {
+            if (!isSelecting) return;
+
+            const rect = selectionOverlay.getBoundingClientRect();
+            const currentX = e.clientX - rect.left;
+            const currentY = e.clientY - rect.top;
+
+            const x = Math.min(selectionStart.x, currentX);
+            const y = Math.min(selectionStart.y, currentY);
+            const width = Math.abs(currentX - selectionStart.x);
+            const height = Math.abs(currentY - selectionStart.y);
+
+            selectionBox.style.left = x + 'px';
+            selectionBox.style.top = y + 'px';
+            selectionBox.style.width = width + 'px';
+            selectionBox.style.height = height + 'px';
+        });
+
+        selectionOverlay.addEventListener('mouseup', (e) => {
+            if (!isSelecting) return;
+            isSelecting = false;
+        });
+
+        // ==================== CAPTURE ====================
+        captureBtn.addEventListener('click', () => {
+            const boxStyle = selectionBox.style;
+            const w = parseInt(boxStyle.width);
+            const h = parseInt(boxStyle.height);
+
+            if (w < 10 || h < 10) {
+                showToast('Vui lòng khoanh vùng trước khi chụp!');
+                return;
+            }
+
+            const x = parseInt(boxStyle.left);
+            const y = parseInt(boxStyle.top);
+
+            // Get the actual pixel ratio for high-DPI rendering
+            const outputScale = window.devicePixelRatio || 1;
+
+            // Create capture canvas at PDF resolution
+            const captureCanvas = document.createElement('canvas');
+            const captureCtx = captureCanvas.getContext('2d');
+
+            // Scale factor from display to PDF coordinates
+            const scaleX = canvas.width / canvas.clientWidth;
+            const scaleY = canvas.height / canvas.clientHeight;
+
+            const srcX = x * scaleX;
+            const srcY = y * scaleY;
+            const srcW = w * scaleX;
+            const srcH = h * scaleY;
+
+            // Output at 2x for quality
+            const outScale = 2;
+            captureCanvas.width = srcW * outScale;
+            captureCanvas.height = srcH * outScale;
+
+            captureCtx.scale(outScale, outScale);
+            captureCtx.drawImage(canvas,
+                srcX, srcY, srcW, srcH,
+                0, 0, srcW, srcH
+            );
+
+            // Convert to JPG blob
+            captureCanvas.toBlob((blob) => {
+                captureCounter++;
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                const filename = `pdf-capture-${timestamp}_${captureCounter}.jpg`;
+
+                const capture = {
+                    id: captureCounter,
+                    blob: blob,
+                    url: URL.createObjectURL(blob),
+                    filename: filename,
+                    page: currentPage,
+                    width: Math.round(srcW),
+                    height: Math.round(srcH),
+                    timestamp: new Date().toLocaleString('vi-VN')
+                };
+
+                captures.push(capture);
+                updateCaptureList();
+                showToast(`Đã chụp ảnh: ${filename}`, true);
+
+                // Exit select mode after capture
+                toggleSelectMode();
+            }, 'image/jpeg', 0.95);
+        });
+
+        // ==================== CAPTURE LIST ====================
+        function updateCaptureList() {
+            if (captures.length === 0) {
+                captureList.innerHTML = '<div class="help-text">Chưa có ảnh nào. Hãy mở file PDF và khoanh vùng chụp ảnh.</div>';
+                saveAllBtn.disabled = true;
+                return;
+            }
+
+            saveAllBtn.disabled = false;
+
+            captureList.innerHTML = captures.map(c => `
+                <div class="capture-item" data-id="${c.id}">
+                    <img src="${c.url}" alt="${c.filename}">
+                    <div class="info">
+                        <span>${c.filename}<br>Trang ${c.page} • ${c.width}×${c.height}px<br>${c.timestamp}</span>
+                        <div>
+                            <button class="download-btn" onclick="downloadCapture(${c.id})">⬇ Lưu</button>
+                            <button class="delete-btn" onclick="deleteCapture(${c.id})">✕</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ==================== DOWNLOAD ====================
+        function downloadCapture(id) {
+            const capture = captures.find(c => c.id === id);
+            if (!capture) return;
+
+            const a = document.createElement('a');
+            a.href = capture.url;
+            a.download = capture.filename;
+            a.click();
+        }
+
+        function deleteCapture(id) {
+            const idx = captures.findIndex(c => c.id === id);
+            if (idx === -1) return;
+
+            URL.revokeObjectURL(captures[idx].url);
+            captures.splice(idx, 1);
+            updateCaptureList();
+            showToast('Đã xóa ảnh chụp.');
+        }
+
+        // ==================== SAVE ALL ====================
+        saveAllBtn.addEventListener('click', () => {
+            captures.forEach(c => {
+                setTimeout(() => downloadCapture(c.id), 200);
+            });
+            showToast(`Đang tải ${captures.length} ảnh...`, true);
+        });
+
+        // ==================== TOAST ====================
+        function showToast(message, success = false) {
+            toast.textContent = message;
+            toast.className = 'toast' + (success ? ' success' : '');
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // ==================== KEYBOARD SHORTCUTS ====================
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && isSelectMode) {
+                toggleSelectMode();
+            }
+            if (e.key === 'ArrowLeft' && pdfDoc && currentPage > 1) {
+                currentPage--;
+                renderPage(currentPage);
+            }
+            if (e.key === 'ArrowRight' && pdfDoc && currentPage < totalPages) {
+                currentPage++;
+                renderPage(currentPage);
+            }
+            if (e.ctrlKey && e.key === 's' && captures.length > 0) {
+                e.preventDefault();
+                captures.forEach(c => downloadCapture(c.id));
+            }
+        });
+
+        // ==================== DRAG & DROP ====================
+        const pdfViewer = document.getElementById('pdfViewer');
+
+        pdfViewer.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            pdfViewer.style.background = '#2a1a2e';
+        });
+
+        pdfViewer.addEventListener('dragleave', () => {
+            pdfViewer.style.background = '';
+        });
+
+        pdfViewer.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            pdfViewer.style.background = '';
+
+            const file = e.dataTransfer.files[0];
+            if (!file || file.type !== 'application/pdf') {
+                showToast('Vui lòng kéo thả file PDF!');
+                return;
+            }
+
+            // Simulate file input
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            fileInput.files = dataTransfer.files;
+            fileInput.dispatchEvent(new Event('change'));
+        });
+    </script>
+</body>
+</html>
