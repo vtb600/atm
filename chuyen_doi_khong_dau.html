@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chuyển không dấu & tách địa chỉ</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg: #f5f6f8;
+    --card: #ffffff;
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+    --ok: #16a34a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 32px 16px;
+  }
+  .wrap{ max-width: 760px; margin: 0 auto; }
+  h1{ font-size: 1.35rem; margin-bottom: 4px; }
+  p.sub{ color: var(--muted); margin-top: 0; margin-bottom: 24px; font-size: 0.95rem; }
+  .card{
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .drop{
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 32px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .drop:hover, .drop.dragover{ border-color: var(--primary); background: #eff6ff; }
+  .drop input{ display:none; }
+  .drop .icon{ font-size: 2rem; margin-bottom: 8px; }
+  .drop .fname{ margin-top: 10px; font-weight: 600; color: var(--primary-dark); }
+  label.field{ display:block; font-size: 0.85rem; color: var(--muted); margin: 4px 0 6px; }
+  select{
+    width:100%; padding: 9px 10px; border-radius: 8px;
+    border: 1px solid var(--border); font-size: 0.9rem; background: #fff;
+  }
+  .row2{ display:grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+  .options{ display:flex; gap: 18px; margin-top: 16px; flex-wrap: wrap; }
+  .options label{ display:flex; align-items:center; gap:6px; font-size: 0.9rem; cursor:pointer; }
+  button{
+    background: var(--primary); color:#fff; border:none; padding: 11px 18px;
+    border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer;
+    margin-top: 20px; width: 100%; transition: background .15s;
+  }
+  button:hover{ background: var(--primary-dark); }
+  button:disabled{ background:#c7ccd4; cursor:not-allowed; }
+  .status{ margin-top: 14px; font-size: 0.88rem; color: var(--muted); min-height: 20px; }
+  .status.ok{ color: var(--ok); font-weight:600; }
+  .status.err{ color:#dc2626; font-weight:600; }
+  table{ width:100%; border-collapse: collapse; font-size: 0.78rem; margin-top: 14px; }
+  th, td{ border: 1px solid var(--border); padding: 6px 8px; text-align:left; white-space: nowrap; }
+  th{ background: #f3f4f6; }
+  .preview-wrap{ max-height: 280px; overflow: auto; border-radius: 8px; }
+  .hint{ font-size: 0.8rem; color: var(--muted); margin-top: 8px; }
+  .legend{ font-size: 0.82rem; color: var(--muted); margin-top: 10px; line-height:1.6; }
+  .legend b{ color: var(--text); }
+  .atm-info{ border: 2px dashed var(--border); border-radius: 10px; padding: 20px 16px; font-size: 0.9rem; line-height:1.7; }
+  .atm-info .refresh-btn{ background: #eef2ff; color: var(--primary-dark); border: 1px solid #c7d2fe; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight:600; margin-top:10px; }
+  .atm-info .refresh-btn:hover{ background:#e0e7ff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Chuyển không dấu & tách địa chỉ mới</h1>
+  <p class="sub">Chọn nguồn dữ liệu: tải file Excel lên, hoặc lấy dữ liệu từ Tab ATM Extractor (Ghép dữ liệu). Kết quả gồm các cột đã chuyển không dấu và tách địa chỉ.</p>
+
+  <div class="card">
+    <label class="field">Nguồn dữ liệu</label>
+    <div class="options">
+      <label><input type="radio" name="source" value="file" checked> File Excel</label>
+      <label><input type="radio" name="source" value="atm"> Tab ATM Extractor (Ghép dữ liệu)</label>
+    </div>
+
+    <div id="fileSource">
+      <div class="drop" id="dropZone">
+        <div class="icon">📄</div>
+        <div>Kéo thả file Excel vào đây, hoặc bấm để chọn file</div>
+        <div class="hint">.xlsx / .xls</div>
+        <div class="fname" id="fileName"></div>
+        <input type="file" id="fileInput" accept=".xlsx,.xls">
+      </div>
+
+      <div class="row2">
+        <div>
+          <label class="field">Sheet</label>
+          <select id="sheetSelect" disabled><option>— chọn file trước —</option></select>
+        </div>
+        <div>
+          <label class="field">Hàng tiêu đề (header)</label>
+          <select id="headerRow" disabled><option>— chọn file trước —</option></select>
+        </div>
+      </div>
+
+      <div class="row2">
+        <div>
+          <label class="field">Cột Họ và tên</label>
+          <select id="col1" disabled><option>— chọn file trước —</option></select>
+        </div>
+        <div>
+          <label class="field">Cột dia_chi_moi</label>
+          <select id="col2" disabled><option>— chọn file trước —</option></select>
+        </div>
+      </div>
+
+      <div class="legend">
+        File kết quả sẽ có các cột:<br>
+        <b>A</b> ho_ten_khong_dau — họ tên đã bỏ dấu<br>
+        <b>B</b> dia_chi_moi_khong_dau — địa chỉ đã bỏ dấu, đã xoá dấu <code>*</code><br>
+        <b>C</b> tinh_thanh — phần cuối cùng (vd: Lam Dong)<br>
+        <b>D</b> xa_phuong — phần kế cuối (vd: Xa/Phuong ...)<br>
+        <b>E</b> con_lai — phần còn lại phía trước
+      </div>
+    </div>
+
+    <div id="atmSource" style="display:none;">
+      <div class="atm-info" id="atmInfo">
+        Chưa chọn nguồn từ Tab ATM Extractor.
+      </div>
+    </div>
+
+    <div class="options">
+      <label><input type="checkbox" id="upperCase"> Viết HOA toàn bộ</label>
+    </div>
+
+    <button id="processBtn" disabled>Xử lý & Tải file kết quả</button>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="card" id="previewCard" style="display:none;">
+    <strong>Xem trước 5 dòng đầu:</strong>
+    <div class="preview-wrap">
+      <table id="previewTable"></table>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------- Vietnamese diacritics removal ----------
+function removeVietnameseTones(str) {
+  if (str === null || str === undefined) return "";
+  str = String(str);
+  str = str.normalize('NFC');
+  str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, "a");
+  str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, "e");
+  str = str.replace(/ì|í|ị|ỉ|ĩ/g, "i");
+  str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, "o");
+  str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, "u");
+  str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, "y");
+  str = str.replace(/đ/g, "d");
+  str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, "A");
+  str = str.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, "E");
+  str = str.replace(/Ì|Í|Ị|Ỉ|Ĩ/g, "I");
+  str = str.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, "O");
+  str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, "U");
+  str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, "Y");
+  str = str.replace(/Đ/g, "D");
+  str = str.replace(/[\u0300-\u036f]/g, "");
+  return str;
+}
+
+// Split an address (no-accent, stars already removed) into { tinhThanh, xaPhuong, conLai }
+function splitAddress(addr) {
+  const parts = addr.split(',').map(s => s.trim()).filter(s => s.length > 0);
+  let tinhThanh = "", xaPhuong = "", conLai = "";
+  if (parts.length >= 3) {
+    tinhThanh = parts[parts.length - 1];
+    xaPhuong = parts[parts.length - 2];
+    conLai = parts.slice(0, parts.length - 2).join(", ");
+  } else if (parts.length === 2) {
+    tinhThanh = parts[1];
+    xaPhuong = parts[0];
+    conLai = "";
+  } else if (parts.length === 1) {
+    tinhThanh = parts[0];
+    xaPhuong = "";
+    conLai = "";
+  }
+  return { tinhThanh, xaPhuong, conLai };
+}
+
+// Remove leading "XA" / "PHUONG" tokens from xa_phuong value
+function cleanXaPhuong(value) {
+  if (!value) return value;
+  const tokens = value.split(/\s+/).filter(s => s.length > 0);
+  while (tokens.length && ["XA", "PHUONG"].includes(tokens[0].toUpperCase())) {
+    tokens.shift();
+  }
+  return tokens.join(" ");
+}
+
+// ---------- State ----------
+let workbook = null;
+let currentFileName = "";
+const colLetter = (i) => XLSX.utils.encode_col(i);
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileNameEl = document.getElementById('fileName');
+const sheetSelect = document.getElementById('sheetSelect');
+const headerRowSelect = document.getElementById('headerRow');
+const col1Select = document.getElementById('col1');
+const col2Select = document.getElementById('col2');
+const processBtn = document.getElementById('processBtn');
+const statusEl = document.getElementById('status');
+const previewCard = document.getElementById('previewCard');
+const previewTable = document.getElementById('previewTable');
+
+const fileSourceEl = document.getElementById('fileSource');
+const atmSourceEl = document.getElementById('atmSource');
+const atmInfoEl = document.getElementById('atmInfo');
+
+let atmMergeData = null;
+let atmDataTime = 0;
+
+function getSource() {
+    const checked = document.querySelector('input[name="source"]:checked');
+    return checked ? checked.value : 'file';
+}
+
+function getSharedWindow() {
+    return (window.parent === window) ? window : window.parent;
+}
+
+window.addEventListener('message', (e) => {
+    const d = e.data;
+    if (!d || typeof d !== 'object') return;
+    if (d.type === 'ATM_MERGE_DATA') {
+        atmMergeData = (d.payload && Array.isArray(d.payload)) ? d.payload : null;
+        atmDataTime = d.time || 0;
+        updateAtmInfo();
+    }
+});
+
+function updateAtmInfo() {
+    if (atmMergeData && atmMergeData.length) {
+        atmInfoEl.innerHTML =
+            '<span class="status ok">Đã lấy dữ liệu từ Tab ATM Extractor (Ghép dữ liệu): ' +
+            atmMergeData.length + ' bản ghi.</span>' +
+            '<div class="hint">Họ và tên → ho_va_ten | Địa chỉ → dia_chi</div>' +
+            '<button type="button" class="refresh-btn" onclick="loadAtmData()">Làm mới dữ liệu</button>';
+        statusEl.textContent = "Đã sẵn sàng xử lý dữ liệu từ Tab ATM Extractor.";
+        statusEl.className = "status ok";
+    } else {
+        atmInfoEl.innerHTML =
+            '<span class="status err">Chưa có dữ liệu từ Tab ATM Extractor.</span>' +
+            '<div class="hint">Vui lòng mở Tab ATM Extractor → Ghép dữ liệu, chạy "Ghép dữ liệu" trước, sau đó quay lại tab này và bấm Làm mới.</div>' +
+            '<button type="button" class="refresh-btn" onclick="loadAtmData()">Làm mới dữ liệu</button>';
+        statusEl.textContent = "";
+        statusEl.className = "status";
+    }
+    updateProcessBtn();
+}
+
+function loadAtmData() {
+    try {
+        const target = getSharedWindow();
+        const direct = target.__atmMergeData;
+        if (direct && Array.isArray(direct)) {
+            atmMergeData = direct;
+            atmDataTime = target.__atmMergeDataTime || 0;
+        }
+        if (target !== window) {
+            target.postMessage({ type: 'ATM_GET_MERGE_DATA' }, '*');
+        }
+    } catch (e) {
+        try {
+            const target = getSharedWindow();
+            if (target !== window) {
+                target.postMessage({ type: 'ATM_GET_MERGE_DATA' }, '*');
+            }
+        } catch (e2) { }
+    }
+    updateAtmInfo();
+}
+
+function updateProcessBtn() {
+    if (getSource() === 'atm') {
+        processBtn.disabled = !(atmMergeData && atmMergeData.length);
+    } else {
+        processBtn.disabled = !workbook;
+    }
+}
+
+document.querySelectorAll('input[name="source"]').forEach((radio) => {
+    radio.addEventListener('change', () => {
+        const source = getSource();
+        fileSourceEl.style.display = (source === 'file') ? 'block' : 'none';
+        atmSourceEl.style.display = (source === 'atm') ? 'block' : 'none';
+        if (source === 'atm') loadAtmData();
+        updateProcessBtn();
+    });
+});
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) {
+    fileInput.files = e.dataTransfer.files;
+    handleFile(e.dataTransfer.files[0]);
+  }
+});
+fileInput.addEventListener('change', (e) => {
+  if (e.target.files.length) handleFile(e.target.files[0]);
+});
+
+function handleFile(file) {
+  currentFileName = file.name.replace(/\.(xlsx|xls)$/i, "");
+  fileNameEl.textContent = file.name;
+  statusEl.textContent = "Đang đọc file...";
+  statusEl.className = "status";
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      workbook = XLSX.read(data, { type: 'array' });
+      populateSheets();
+      statusEl.textContent = "Đã đọc file thành công.";
+      statusEl.className = "status ok";
+    } catch (err) {
+      statusEl.textContent = "Lỗi đọc file: " + err.message;
+      statusEl.className = "status err";
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function populateSheets() {
+  sheetSelect.innerHTML = "";
+  workbook.SheetNames.forEach((name) => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    sheetSelect.appendChild(opt);
+  });
+  sheetSelect.disabled = false;
+  sheetSelect.onchange = onSheetChange;
+  onSheetChange();
+}
+
+function onSheetChange() {
+  const sheetName = sheetSelect.value;
+  const ws = workbook.Sheets[sheetName];
+  const range = XLSX.utils.decode_range(ws['!ref']);
+
+  headerRowSelect.innerHTML = "";
+  for (let r = 0; r <= range.e.r && r < 10; r++) {
+    const cellRef = XLSX.utils.encode_cell({ r, c: range.s.c });
+    const cell = ws[cellRef];
+    const preview = cell ? String(cell.v).slice(0, 20) : "";
+    const opt = document.createElement('option');
+    opt.value = r;
+    opt.textContent = `Dòng ${r + 1}` + (preview ? ` ("${preview}...")` : "");
+    headerRowSelect.appendChild(opt);
+  }
+  headerRowSelect.disabled = false;
+  headerRowSelect.value = 0;
+  headerRowSelect.onchange = populateColumnOptions;
+
+  populateColumnOptions();
+}
+
+function populateColumnOptions() {
+  const sheetName = sheetSelect.value;
+  const ws = workbook.Sheets[sheetName];
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  const headerRow = parseInt(headerRowSelect.value, 10);
+
+  const options = [];
+  for (let c = range.s.c; c <= range.e.c; c++) {
+    const cellRef = XLSX.utils.encode_cell({ r: headerRow, c });
+    const cell = ws[cellRef];
+    const label = colLetter(c) + (cell && cell.v !== undefined ? ` — ${cell.v}` : "");
+    options.push({ value: c, label });
+  }
+
+  [col1Select, col2Select].forEach((sel) => {
+    sel.innerHTML = "";
+    options.forEach((o) => {
+      const opt = document.createElement('option');
+      opt.value = o.value;
+      opt.textContent = o.label;
+      sel.appendChild(opt);
+    });
+    sel.disabled = false;
+  });
+
+  autoSelectColumn(col1Select, options, ["họ và tên", "ho va ten", "họ tên"], 4);
+  autoSelectColumn(col2Select, options, ["dia_chi_moi", "địa chỉ mới"], 12);
+
+  updateProcessBtn();
+}
+
+function autoSelectColumn(selectEl, options, keywords, fallbackIndex) {
+  let found = options.find(o => keywords.some(k => o.label.toLowerCase().includes(k)));
+  if (!found) found = options.find(o => o.value === fallbackIndex);
+  if (found) selectEl.value = found.value;
+}
+
+processBtn.addEventListener('click', () => {
+  if (getSource() === 'atm') {
+    processAtmData();
+  } else {
+    processFileData();
+  }
+});
+
+function processFileData() {
+  try {
+    const sheetName = sheetSelect.value;
+    const ws = workbook.Sheets[sheetName];
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    const headerRow = parseInt(headerRowSelect.value, 10);
+    const colHoTen = parseInt(col1Select.value, 10);
+    const colDiaChi = parseInt(col2Select.value, 10);
+    const upperCase = document.getElementById('upperCase').checked;
+
+    const outRows = [];
+    outRows.push(["ho_ten_khong_dau", "dia_chi_moi_khong_dau", "tinh_thanh", "xa_phuong", "con_lai"]);
+
+    const previewRows = [];
+
+    for (let r = headerRow + 1; r <= range.e.r; r++) {
+      const cellHoTen = ws[XLSX.utils.encode_cell({ r, c: colHoTen })];
+      const cellDiaChi = ws[XLSX.utils.encode_cell({ r, c: colDiaChi })];
+
+      const hoTenRaw = cellHoTen && cellHoTen.v !== undefined ? String(cellHoTen.v) : "";
+      const diaChiRaw = cellDiaChi && cellDiaChi.v !== undefined ? String(cellDiaChi.v) : "";
+
+      // skip fully empty rows
+      if (!hoTenRaw && !diaChiRaw) continue;
+
+      let hoTenKD = removeVietnameseTones(hoTenRaw).trim();
+      let diaChiKD = removeVietnameseTones(diaChiRaw).replace(/\*/g, "").trim();
+      // normalize extra spaces left after removing '*'
+      diaChiKD = diaChiKD.replace(/\s+,/g, ",").replace(/\s{2,}/g, " ").trim();
+
+      const { tinhThanh, xaPhuong, conLai } = splitAddress(diaChiKD);
+      const xaPhuongClean = cleanXaPhuong(xaPhuong);
+
+      let row = [hoTenKD, diaChiKD, tinhThanh, xaPhuongClean, conLai];
+      if (upperCase) row = row.map(v => v.toUpperCase());
+
+      outRows.push(row);
+
+      if (previewRows.length < 5) previewRows.push(row);
+    }
+
+    renderPreview(outRows[0], previewRows);
+
+    const outWs = XLSX.utils.aoa_to_sheet(outRows);
+    outWs['!cols'] = [{ wch: 28 }, { wch: 45 }, { wch: 14 }, { wch: 22 }, { wch: 35 }];
+    const outWb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(outWb, outWs, "Ket qua");
+
+    const outName = `${currentFileName}_khong_dau.xlsx`;
+    XLSX.writeFile(outWb, outName);
+
+    statusEl.textContent = `Hoàn tất! Đã tải file "${outName}" (${outRows.length - 1} dòng dữ liệu).`;
+    statusEl.className = "status ok";
+  } catch (err) {
+    statusEl.textContent = "Lỗi xử lý: " + err.message;
+    statusEl.className = "status err";
+  }
+}
+
+function processAtmData() {
+  try {
+    const upperCase = document.getElementById('upperCase').checked;
+
+    const headers = [
+      'STT', 'Tên file', 'Số CCCD', 'Số CMND cũ', 'Họ và tên', 'Ngày sinh', 'Giới tính',
+      'Địa chỉ', 'Ngày cấp mới', 'Có giá trị đến', 'Số điện thoại', 'Trạng thái',
+      'ho_ten_khong_dau', 'dia_chi_moi_khong_dau', 'tinh_thanh', 'xa_phuong', 'con_lai'
+    ];
+
+    const outRows = [headers];
+    const previewRows = [];
+
+    atmMergeData.forEach((row, idx) => {
+      const hoTenRaw = String(row.ho_va_ten || '').trim();
+      const diaChiRaw = String(row.dia_chi || '').trim();
+
+      if (!hoTenRaw && !diaChiRaw) return;
+
+      let hoTenKD = removeVietnameseTones(hoTenRaw).trim();
+      let diaChiKD = removeVietnameseTones(diaChiRaw).replace(/\*/g, "").trim();
+      diaChiKD = diaChiKD.replace(/\s+,/g, ",").replace(/\s{2,}/g, " ").trim();
+
+      const { tinhThanh, xaPhuong, conLai } = splitAddress(diaChiKD);
+      const xaPhuongClean = cleanXaPhuong(xaPhuong);
+
+      let extra = [hoTenKD, diaChiKD, tinhThanh, xaPhuongClean, conLai];
+      if (upperCase) extra = extra.map(v => v.toUpperCase());
+
+      const base = [
+        idx + 1,
+        row.ten_file || '',
+        row.so_cccd || '',
+        row.so_cmnd_cu || '',
+        row.ho_va_ten || '',
+        row.ngay_sinh || '',
+        row.gioi_tinh || '',
+        row.dia_chi || '',
+        row.ngay_cap_moi || '',
+        row.co_gia_tri_den || '',
+        row.so_dien_thoai || '',
+        row.trang_thai || ''
+      ];
+
+      const rowOut = base.concat(extra);
+      outRows.push(rowOut);
+
+      if (previewRows.length < 5) previewRows.push(rowOut);
+    });
+
+    renderPreview(headers, previewRows);
+
+    const outWs = XLSX.utils.aoa_to_sheet(outRows);
+    outWs['!cols'] = headers.map((h, i) => ({ wch: i === 0 ? 6 : 20 }));
+    const outWb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(outWb, outWs, "Ket qua");
+
+    const outName = 'cccd_sms_ghep_khong_dau.xlsx';
+    XLSX.writeFile(outWb, outName);
+
+    statusEl.textContent = `Hoàn tất! Đã tải file "${outName}" (${outRows.length - 1} dòng dữ liệu).`;
+    statusEl.className = "status ok";
+  } catch (err) {
+    statusEl.textContent = "Lỗi xử lý: " + err.message;
+    statusEl.className = "status err";
+  }
+}
+
+function renderPreview(headers, rows) {
+  if (!rows.length) { previewCard.style.display = "none"; return; }
+  let html = "<tr>" + headers.map(h => `<th>${h}</th>`).join("") + "</tr>";
+  rows.forEach((row) => {
+    html += "<tr>" + row.map(v => `<td>${v}</td>`).join("") + "</tr>";
+  });
+  previewTable.innerHTML = html;
+  previewCard.style.display = "block";
+}
+</script>
+</body>
+</html>
