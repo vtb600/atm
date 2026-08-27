@@ -472,7 +472,7 @@
         let isSelecting = false;
         let selectionStart = { x: 0, y: 0 };
         let selections = [];
-        const MAX_SELECTIONS = 2;
+        const MAX_SELECTIONS = 1;
         let captures = [];
         let captureCounter = 0;
 
@@ -846,7 +846,7 @@
                 .replace(/\s+/g, ' ')
                 .trim();
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 23);
-            let name = `${base}-${timestamp}`;
+            let name = `${base}`;
             let n = 2;
             while (captures.some(c => c.filename === name + '.jpg')) {
                 name = `${base}-${timestamp}_${n++}`;
