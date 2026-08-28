@@ -1170,7 +1170,7 @@ Yêu cầu:
 - Giữ dấu tiếng Việt đầy đủ cho ho_va_ten và dia_chi.
 - Nếu không tìm thấy trường nào trong ảnh thì để giá trị là chuỗi rỗng "".
 - Ưu tiên lấy giá trị từ đoạn text tóm tắt (1) nếu có; chỉ lấy "co_gia_tri_den" từ mặt trước (nếu Loại là Căn Cước Công Dân) hoặc từ mặt sau (nếu Loại là Căn Cước) (2).
-- Trường "gioi_tinh": nếu là Nữ thì ghi là F, nếu là Nam thì ghi là M.
+- Trường "gioi_tinh": nếu thông tin là "Nữ" thì trả kết quả là "F", nếu thông tin là "Nam" thì trả kết quả là "M".
 - Trường "loai": xác định LOẠI giấy tờ dựa vào tiêu đề in đậm, màu đỏ, trên mặt trước thẻ ở phần ảnh (2):
     + Nếu tiêu đề trên thẻ là "CĂN CƯỚC CÔNG DÂN" (kèm dòng tiếng Anh "Citizen Identity Card") thì trả về "Căn cước công dân".
     + Nếu tiêu đề trên thẻ là "CĂN CƯỚC" (kèm dòng tiếng Anh "Identity Card", không có chữ "Công dân") thì trả về "Căn cước".
